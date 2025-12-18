@@ -1,0 +1,252 @@
+#!/bin/bash
+
+# ============================================
+# ShortLink Pro - EC2 User Data Script
+# ============================================
+# 
+# This script runs on instance launch to:
+# - Install required packages
+# - Download application code from S3
+# - Configure web server
+# - Start services
+# 
+# Logs: /var/log/user-data.log
+# ============================================
+
+# Redirect all output to log file
+exec > >(tee /var/log/user-data.log)
+exec 2>&1
+
+echo "================================================"
+echo "ShortLink Pro - User Data Script"
+echo "Started at: $(date)"
+echo "================================================"
+
+# ============================================
+# Configuration Variables
+# ============================================
+
+S3_BUCKET="shortlink-code-deployment-1766004734"
+APP_FILE="index.php"
+WEB_ROOT="/var/www/html"
+
+echo "Configuration:"
+echo "  S3 Bucket: $S3_BUCKET"
+echo "  App File: $APP_FILE"
+echo "  Web Root: $WEB_ROOT"
+
+# ============================================
+# System Updates
+# ============================================
+
+echo ""
+echo "Step 1: Updating system packages..."
+yum update -y
+
+if [ $? -eq 0 ]; then
+    echo "✅ System update complete"
+else
+    echo "❌ System update failed"
+    exit 1
+fi
+
+# ============================================
+# Install Required Packages
+# ============================================
+
+echo ""
+echo "Step 2: Installing Apache, PHP, and MySQL client..."
+yum install -y httpd php php-mysqlnd php-pdo
+
+if [ $? -eq 0 ]; then
+    echo "✅ Packages installed successfully"
+else
+    echo "❌ Package installation failed"
+    exit 1
+fi
+
+# ============================================
+# Configure Apache
+# ============================================
+
+echo ""
+echo "Step 3: Configuring Apache web server..."
+
+# Start Apache
+systemctl start httpd
+if [ $? -eq 0 ]; then
+    echo "✅ Apache started"
+else
+    echo "❌ Apache failed to start"
+    exit 1
+fi
+
+# Enable Apache to start on boot
+systemctl enable httpd
+echo "✅ Apache enabled on boot"
+
+# ============================================
+# Download Application from S3
+# ============================================
+
+echo ""
+echo "Step 4: Downloading application from S3..."
+
+# Download application code
+aws s3 cp s3://$S3_BUCKET/$APP_FILE $WEB_ROOT/$APP_FILE
+
+if [ $? -eq 0 ]; then
+    echo "✅ Application downloaded successfully"
+    echo "   Downloaded: $WEB_ROOT/$APP_FILE"
+else
+    echo "❌ S3 download failed"
+    echo "   Bucket: s3://$S3_BUCKET/$APP_FILE"
+    echo "   Check: IAM role permissions, bucket policy, file exists"
+    exit 1
+fi
+
+# Verify file was downloaded
+if [ -f "$WEB_ROOT/$APP_FILE" ]; then
+    FILE_SIZE=$(stat -f%z "$WEB_ROOT/$APP_FILE" 2>/dev/null || stat -c%s "$WEB_ROOT/$APP_FILE")
+    echo "✅ File verified: $FILE_SIZE bytes"
+else
+    echo "❌ File not found after download"
+    exit 1
+fi
+
+# ============================================
+# Create Health Check Endpoint
+# ============================================
+
+echo ""
+echo "Step 5: Creating health check endpoint..."
+
+echo "OK" > $WEB_ROOT/health.html
+
+if [ -f "$WEB_ROOT/health.html" ]; then
+    echo "✅ Health check file created"
+else
+    echo "❌ Health check file creation failed"
+fi
+
+# ============================================
+# Set Permissions
+# ============================================
+
+echo ""
+echo "Step 6: Setting file permissions..."
+
+# Set ownership
+chown -R apache:apache $WEB_ROOT
+
+# Set permissions
+chmod 755 $WEB_ROOT
+chmod 644 $WEB_ROOT/*
+
+echo "✅ Permissions set"
+echo "   Owner: apache:apache"
+echo "   Directory: 755"
+echo "   Files: 644"
+
+# ============================================
+# Restart Apache
+# ============================================
+
+echo ""
+echo "Step 7: Restarting Apache..."
+
+systemctl restart httpd
+
+if [ $? -eq 0 ]; then
+    echo "✅ Apache restarted successfully"
+else
+    echo "❌ Apache restart failed"
+    exit 1
+fi
+
+# ============================================
+# Verify Installation
+# ============================================
+
+echo ""
+echo "Step 8: Verifying installation..."
+
+# Check Apache status
+if systemctl is-active --quiet httpd; then
+    echo "✅ Apache is running"
+else
+    echo "❌ Apache is not running"
+fi
+
+# List installed files
+echo ""
+echo "Installed files in $WEB_ROOT:"
+ls -lah $WEB_ROOT/
+
+# Get instance metadata
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+PRIVATE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+
+echo ""
+echo "Instance Information:"
+echo "  Instance ID: $INSTANCE_ID"
+echo "  Availability Zone: $AZ"
+echo "  Private IP: $PRIVATE_IP"
+
+# ============================================
+# Completion
+# ============================================
+
+echo ""
+echo "================================================"
+echo "ShortLink Pro - Deployment Complete!"
+echo "Completed at: $(date)"
+echo "================================================"
+echo ""
+echo "Application should be accessible via:"
+echo "  - Application Load Balancer"
+echo "  - CloudFront CDN"
+echo ""
+echo "Health check available at:"
+echo "  http://$PRIVATE_IP/health.html"
+echo ""
+echo "Check this log for troubleshooting:"
+echo "  /var/log/user-data.log"
+echo "================================================"
+
+exit 0
+
+# ============================================
+# Troubleshooting Tips
+# ============================================
+#
+# If application doesn't work:
+#
+# 1. Check this log:
+#    sudo cat /var/log/user-data.log
+#
+# 2. Check Apache error log:
+#    sudo tail -50 /var/log/httpd/error_log
+#
+# 3. Check Apache is running:
+#    sudo systemctl status httpd
+#
+# 4. Test health endpoint:
+#    curl http://localhost/health.html
+#
+# 5. Test application locally:
+#    curl http://localhost/
+#
+# 6. Check IAM role attached:
+#    aws sts get-caller-identity
+#
+# 7. Test S3 access:
+#    aws s3 ls s3://shortlink-code-deployment-1766004734/
+#
+# 8. Check file permissions:
+#    ls -la /var/www/html/
+#
+# ============================================
+
+
