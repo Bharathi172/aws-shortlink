@@ -472,6 +472,6 @@ CREATE TABLE url_stats (
 
 Demonstrating production-grade cloud architecture with auto-scaling, caching, and high availability.
 
-[Architecture](./docs/architecture.md) | [Deployment](./docs/deployment-guide.md) | [Performance](./docs/performance-analysis.md)
+[Architecture](./docs/architecture.md) | [Deployment](./docs/deployment_guide.md) | [Performance](./docs/performance_analysis.md)
 
 </div>
