@@ -454,7 +454,14 @@ CREATE TABLE url_stats (
 **Bharathi Kishna*
 
 - GitHub: [@Bharathi172](https://github.com/Bharathi172)
-- Portfolio Project: Production AWS Architecture
+
+---
+
+## 📄 License
+
+MIT License - Copyright (c) 2025 Bharathi Kishna 
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
 
 ---
 
