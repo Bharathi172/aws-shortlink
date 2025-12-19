@@ -475,7 +475,7 @@ This project is licensed under the MIT License. See the [LICENSE](./LICENSE) fil
 
 <div align="center">
 
-**Built with ☁️ on AWS**
+**Built with ❤️ on AWS ☁️ with guidance from Claude (Anthropic) and ChatGPT (OpenAI)**
 
 Demonstrating production-grade cloud architecture with auto-scaling, caching, and high availability.
 
